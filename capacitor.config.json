@@ -1,0 +1,9 @@
+{
+  "appId": "com.colordance.app",
+  "appName": "Hue Knew?",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#111111"
+  }
+}

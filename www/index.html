@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Hue Knew?</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    font-family: Helvetica, "Helvetica Neue", Arial, sans-serif;
+    background: #111;
+    overflow: hidden;
+    transition: background 0.6s ease;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+
+  .stage {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+  }
+
+  .field {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: center;
+    justify-content: center;
+    gap: 16px;
+    padding: calc(24px + env(safe-area-inset-top)) 24px 24px;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  .tile {
+    width: clamp(84px, 13vw, 130px);
+    height: clamp(84px, 13vw, 130px);
+    border: none;
+    border-radius: 26px;
+    cursor: pointer;
+    outline: none;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    will-change: transform;
+    flex: 0 0 auto;
+  }
+
+  /* birth: springy pop-in for each new color */
+  @keyframes born {
+    0%   { transform: scale(0) rotate(-30deg); opacity: 0; }
+    55%  { transform: scale(1.25) rotate(8deg); opacity: 1; }
+    75%  { transform: scale(0.92) rotate(-3deg); }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+  .tile.born { animation: born 0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+  /* dance moves for re-taps */
+  @keyframes bounce {
+    0%   { transform: translateY(0) scale(1); }
+    18%  { transform: translateY(-40px) scale(1.08, 0.92) rotate(4deg); }
+    36%  { transform: translateY(0) scale(0.94, 1.08); }
+    52%  { transform: translateY(-22px) scale(1.05, 0.95) rotate(-4deg); }
+    68%  { transform: translateY(0) scale(0.97, 1.04); }
+    82%  { transform: translateY(-9px) rotate(2deg); }
+    100% { transform: translateY(0) scale(1); }
+  }
+  @keyframes wiggle {
+    0%   { transform: rotate(0deg) scale(1); }
+    15%  { transform: rotate(11deg) scale(1.14); }
+    30%  { transform: rotate(-10deg) scale(1.17); }
+    45%  { transform: rotate(8deg) scale(1.12); }
+    60%  { transform: rotate(-5deg) scale(1.14); }
+    75%  { transform: rotate(3deg) scale(1.06); }
+    100% { transform: rotate(0deg) scale(1); }
+  }
+  @keyframes pop {
+    0%   { transform: scale(1); }
+    30%  { transform: scale(1.4) rotate(7deg); }
+    55%  { transform: scale(0.8) rotate(-5deg); }
+    75%  { transform: scale(1.18); }
+    100% { transform: scale(1); }
+  }
+  @keyframes shimmy {
+    0%   { transform: translateX(0); }
+    12%  { transform: translateX(-15px) rotate(-6deg); }
+    28%  { transform: translateX(15px) rotate(6deg); }
+    44%  { transform: translateX(-11px) rotate(-4deg); }
+    60%  { transform: translateX(11px) rotate(4deg); }
+    76%  { transform: translateX(-5px) rotate(-2deg); }
+    100% { transform: translateX(0); }
+  }
+  @keyframes flip {
+    0%   { transform: perspective(500px) rotateY(0) scale(1); }
+    45%  { transform: perspective(500px) rotateY(180deg) scale(1.18); }
+    100% { transform: perspective(500px) rotateY(360deg) scale(1); }
+  }
+  .tile.dance-bounce { animation: bounce 0.9s cubic-bezier(0.28, 0.84, 0.42, 1); }
+  .tile.dance-wiggle { animation: wiggle 0.8s ease-in-out; }
+  .tile.dance-pop    { animation: pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .tile.dance-shimmy { animation: shimmy 0.8s ease-in-out; }
+  .tile.dance-flip   { animation: flip 0.9s ease-in-out; }
+
+  /* ripple where you tap */
+  .ripple {
+    position: fixed;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    animation: rip 0.55s ease-out forwards;
+    z-index: 10;
+  }
+  @keyframes rip {
+    0%   { opacity: 0.9; scale: 1; }
+    100% { opacity: 0; scale: 7; }
+  }
+
+  .name-bar {
+    flex: 0 0 auto;
+    text-align: center;
+    padding: 22px 16px calc(34px + env(safe-area-inset-bottom));
+    pointer-events: none;
+  }
+
+  .color-name {
+    font-size: clamp(2.4rem, 7vw, 5rem);
+    font-weight: bold;
+    letter-spacing: -0.02em;
+    color: #fff;
+    line-height: 1.05;
+    transition: color 0.4s ease;
+  }
+  .color-name.swap { animation: nameIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  @keyframes nameIn {
+    0%   { opacity: 0; transform: translateY(26px) scale(0.9); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .hint {
+    margin-top: 8px;
+    font-size: 0.95rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+  }
+
+  /* collection badge */
+  .badge {
+    position: fixed;
+    top: calc(14px + env(safe-area-inset-top));
+    right: 14px;
+    z-index: 20;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: bold;
+    font-size: 0.95rem;
+    letter-spacing: 0.06em;
+    color: #fff;
+    background: rgba(255,255,255,0.14);
+    backdrop-filter: blur(6px);
+    border-radius: 999px;
+    padding: 10px 18px;
+    transition: transform 0.15s ease, background 0.3s ease;
+  }
+  .badge:hover { transform: scale(1.08); background: rgba(255,255,255,0.22); }
+  .badge.tick { animation: pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+  /* collection overlay */
+  .collection {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: rgba(8, 8, 12, 0.92);
+    backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .collection.open { opacity: 1; pointer-events: auto; }
+
+  .col-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    padding: calc(20px + env(safe-area-inset-top)) 22px 14px;
+  }
+  .col-title { font-size: 1.6rem; font-weight: bold; color: #fff; }
+  .col-count { font-size: 1rem; color: rgba(255,255,255,0.55); letter-spacing: 0.08em; }
+  .col-close {
+    margin-left: auto;
+    border: none;
+    background: rgba(255,255,255,0.14);
+    color: #fff;
+    font-size: 1.5rem;
+    line-height: 1;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .col-grid {
+    flex: 1;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+    gap: 14px;
+    padding: 10px 22px calc(30px + env(safe-area-inset-bottom));
+    align-content: start;
+  }
+  .swatch {
+    border: none;
+    cursor: pointer;
+    background: none;
+    font-family: inherit;
+    padding: 0;
+    text-align: center;
+  }
+  .swatch .chip {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 18px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: rgba(255,255,255,0.25);
+  }
+  .swatch.locked .chip { background: rgba(255,255,255,0.06); border: 2px dashed rgba(255,255,255,0.15); }
+  .swatch .label {
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.75);
+    line-height: 1.2;
+  }
+  .swatch.locked .label { color: rgba(255,255,255,0.3); }
+</style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <div class="field" id="field"></div>
+    <div class="name-bar">
+      <div class="color-name" id="colorName">Hue Knew?</div>
+      <div class="hint" id="hint">tap anywhere — a new color appears</div>
+    </div>
+  </div>
+
+  <button class="badge" id="badge" aria-label="open collection">0 / 64</button>
+
+  <div class="collection" id="collection">
+    <div class="col-head">
+      <span class="col-title">Your colors</span>
+      <span class="col-count" id="colCount"></span>
+      <button class="col-close" id="colClose" aria-label="close collection">&times;</button>
+    </div>
+    <div class="col-grid" id="colGrid"></div>
+  </div>
+
+<script>
+  // Rare and wonderful color names
+  const COLORS = [
+    ["Zaffre",        "#0014A8"], ["Gamboge",       "#E49B0F"],
+    ["Falu Red",      "#801818"], ["Glaucous",      "#6082B6"],
+    ["Mikado Yellow", "#FFC40C"], ["Smaragdine",    "#50C875"],
+    ["Amaranth",      "#E52B50"], ["Wenge",         "#645452"],
+    ["Celadon",       "#ACE1AF"], ["Vermilion",     "#E34234"],
+    ["Periwinkle",    "#CCCCFF"], ["Xanadu",        "#738678"],
+    ["Heliotrope",    "#DF73FF"], ["Feldgrau",      "#4D5D53"],
+    ["Razzmatazz",    "#E3256B"], ["Sarcoline",     "#FFDDA8"],
+    ["Eburnean",      "#FDF6E3"], ["Coquelicot",    "#FF3800"],
+    ["Byzantium",     "#702963"], ["Malachite",     "#0BDA51"],
+    ["Cerulean",      "#007BA7"], ["Fulvous",       "#E48400"],
+    ["Skobeloff",     "#007474"], ["Puce",          "#CC8899"],
+    ["Viridian",      "#40826D"], ["Aureolin",      "#FDEE00"],
+    ["Bisque",        "#FFE4C4"], ["Cattleya",      "#9A4EAE"],
+    ["Drake's-Neck",  "#1F6357"], ["Incarnadine",   "#A41F35"],
+    ["Labradorite",   "#4A766E"], ["Mazarine",      "#273C76"],
+    ["Nacarat",       "#FF5E4D"], ["Ochre",         "#CC7722"],
+    ["Phlox",         "#DF00FF"], ["Quercitron",    "#D9B611"],
+    ["Rufous",        "#A81C07"], ["Sinopia",       "#CB410B"],
+    ["Titian",        "#D53E07"], ["Ultramarine",   "#3F00FF"],
+    ["Verdigris",     "#43B3AE"], ["Watchet",       "#A1CAF1"],
+    ["Xanthic",       "#EEED09"], ["Yale Blue",     "#0F4D92"],
+    ["Zomp",          "#39A78E"], ["Amaranth Pink", "#F19CBB"],
+    ["Bole",          "#79443B"], ["Cordovan",      "#893F45"],
+    ["Eigengrau",     "#16161D"], ["Flax",          "#EEDC82"],
+    ["Gunmetal",      "#2A3439"], ["Honeydew",      "#F0FFF0"],
+    ["Isabelline",    "#F4F0EC"], ["Jacarta",       "#3D325D"],
+    ["Keppel",        "#3AB09E"], ["Liseran",       "#DE6FA1"],
+    ["Lapis Lazuli",  "#26619C"], ["Tyrian Purple", "#66023C"],
+    ["Chartreuse",    "#7FFF00"], ["Persimmon",     "#EC5800"],
+    ["Madder Lake",   "#CC3336"], ["Saffron",       "#F4C430"],
+    ["Bittersweet",   "#FE6F5E"], ["Caput Mortuum", "#592720"],
+  ];
+
+  const DANCES = ["dance-bounce", "dance-wiggle", "dance-pop", "dance-shimmy", "dance-flip"];
+
+  const stage = document.getElementById("stage");
+  const field = document.getElementById("field");
+  const nameEl = document.getElementById("colorName");
+  const hintEl = document.getElementById("hint");
+
+  // Shuffled deck — every color is new until all 64 have appeared
+  let deck = [];
+  function drawColor() {
+    if (deck.length === 0) deck = [...COLORS].sort(() => Math.random() - 0.5);
+    return deck.pop();
+  }
+
+  function rgb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function luminance(hex) {
+    const [r, g, b] = rgb(hex);
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  }
+  function hue(hex) {
+    const [r, g, b] = rgb(hex).map(v => v / 255);
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    if (d === 0) return 0;
+    let h;
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    return ((h * 60) + 360) % 360;
+  }
+
+  // ---- cute sounds (Web Audio, no files) ----
+  let actx = null;
+  function audio() {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === "suspended") actx.resume();
+    return actx;
+  }
+
+  // C major pentatonic, two octaves — every color sings its own note based on hue
+  const SCALE = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51];
+  function noteFor(hex) {
+    return SCALE[Math.floor(hue(hex) / 360 * SCALE.length) % SCALE.length];
+  }
+
+  function playBoop(freq, bright) {
+    const ctx = audio();
+    const t = ctx.currentTime;
+
+    // main marimba-ish blip with a little upward pitch bend
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(freq * 0.92, t);
+    o.frequency.exponentialRampToValueAtTime(freq, t + 0.05);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.28, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+    o.connect(g).connect(ctx.destination);
+    o.start(t); o.stop(t + 0.4);
+
+    // sparkly overtone an octave + fifth up, very quiet
+    const o2 = ctx.createOscillator();
+    const g2 = ctx.createGain();
+    o2.type = "triangle";
+    o2.frequency.setValueAtTime(freq * 3, t);
+    g2.gain.setValueAtTime(0.0001, t);
+    g2.gain.exponentialRampToValueAtTime(bright ? 0.07 : 0.04, t + 0.01);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+    o2.connect(g2).connect(ctx.destination);
+    o2.start(t); o2.stop(t + 0.2);
+
+    // soft "tick" of a fingertip
+    const buf = ctx.createBuffer(1, 440, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+    const noise = ctx.createBufferSource();
+    noise.buffer = buf;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(0.05, t);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+    const hp = ctx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = 3000;
+    noise.connect(hp).connect(ng).connect(ctx.destination);
+    noise.start(t);
+  }
+
+  // ---- haptics: native buzz on iOS via Capacitor, vibration API elsewhere ----
+  function buzz(strong) {
+    const H = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics;
+    if (H) H.impact({ style: strong ? "MEDIUM" : "LIGHT" }).catch(() => {});
+    else if (navigator.vibrate) navigator.vibrate(strong ? 18 : 9);
+  }
+
+  // ---- collection: every color you've discovered, saved across visits ----
+  const badge = document.getElementById("badge");
+  const collection = document.getElementById("collection");
+  const colGrid = document.getElementById("colGrid");
+  const colCount = document.getElementById("colCount");
+
+  const found = new Set(JSON.parse(localStorage.getItem("hueknew-found") || "[]"));
+
+  function updateBadge() {
+    badge.textContent = `${found.size} / ${COLORS.length}`;
+    badge.classList.remove("tick");
+    void badge.offsetWidth;
+    badge.classList.add("tick");
+  }
+
+  function recordFind(name) {
+    if (found.has(name)) return;
+    found.add(name);
+    localStorage.setItem("hueknew-found", JSON.stringify([...found]));
+    updateBadge();
+  }
+
+  function buildCollection() {
+    colGrid.innerHTML = "";
+    colCount.textContent = found.size === COLORS.length
+      ? "all 64 found — hue genius!"
+      : `${found.size} of ${COLORS.length} discovered`;
+    for (const [name, hex] of COLORS) {
+      const sw = document.createElement("button");
+      const got = found.has(name);
+      sw.className = got ? "swatch" : "swatch locked";
+      const chip = document.createElement("div");
+      chip.className = "chip";
+      if (got) chip.style.backgroundColor = hex;
+      else chip.textContent = "?";
+      const label = document.createElement("div");
+      label.className = "label";
+      label.textContent = got ? name : "· · ·";
+      sw.append(chip, label);
+      if (got) {
+        sw.addEventListener("pointerdown", (e) => {
+          e.stopPropagation();
+          announce(name, hex);
+          playBoop(noteFor(hex), false);
+          buzz(false);
+        });
+      }
+      colGrid.appendChild(sw);
+    }
+  }
+
+  badge.addEventListener("pointerdown", (e) => {
+    e.stopPropagation();
+    buildCollection();
+    collection.classList.add("open");
+    buzz(false);
+  });
+  document.getElementById("colClose").addEventListener("pointerdown", (e) => {
+    e.stopPropagation();
+    collection.classList.remove("open");
+    buzz(false);
+  });
+
+  // ---- visuals ----
+  function ripple(x, y, color) {
+    const r = document.createElement("div");
+    r.className = "ripple";
+    r.style.left = x + "px";
+    r.style.top = y + "px";
+    r.style.borderColor = color;
+    document.body.appendChild(r);
+    r.addEventListener("animationend", () => r.remove());
+  }
+
+  function announce(name, hex) {
+    nameEl.textContent = name;
+    nameEl.style.color = hex;
+    nameEl.classList.remove("swap");
+    void nameEl.offsetWidth;
+    nameEl.classList.add("swap");
+    hintEl.textContent = hex;
+
+    const [r, g, b] = rgb(hex);
+    document.body.style.background =
+      `rgb(${Math.round(r * 0.16)}, ${Math.round(g * 0.16)}, ${Math.round(b * 0.16)})`;
+    if (luminance(hex) < 0.22) {
+      nameEl.style.color =
+        `rgb(${Math.min(255, r + 120)}, ${Math.min(255, g + 120)}, ${Math.min(255, b + 120)})`;
+    }
+  }
+
+  function spawnColor(x, y) {
+    const [name, hex] = drawColor();
+    const tile = document.createElement("button");
+    tile.className = "tile born";
+    tile.style.backgroundColor = hex;
+    tile.dataset.name = name;
+    tile.dataset.hex = hex;
+    tile.setAttribute("aria-label", name);
+    tile.addEventListener("animationend", () => tile.classList.remove("born"), { once: true });
+    field.appendChild(tile);
+    tile.scrollIntoView({ block: "nearest", behavior: "smooth" });
+
+    announce(name, hex);
+    playBoop(noteFor(hex), true);
+    buzz(true);
+    recordFind(name);
+    ripple(x, y, hex);
+  }
+
+  function danceTile(tile, x, y) {
+    DANCES.forEach(d => tile.classList.remove(d));
+    void tile.offsetWidth;
+    tile.classList.add(DANCES[Math.floor(Math.random() * DANCES.length)]);
+    announce(tile.dataset.name, tile.dataset.hex);
+    playBoop(noteFor(tile.dataset.hex), false);
+    buzz(false);
+    ripple(x, y, tile.dataset.hex);
+  }
+
+  stage.addEventListener("pointerdown", (e) => {
+    const tile = e.target.closest(".tile");
+    if (tile) danceTile(tile, e.clientX, e.clientY);
+    else spawnColor(e.clientX, e.clientY);
+  });
+
+  badge.textContent = `${found.size} / ${COLORS.length}`;
+</script>
+</body>
+</html>
