@@ -35,21 +35,6 @@ npm install
 npm run serve        # → http://localhost:4173 — go tap things
 ```
 
-The whole app lives in [`www/index.html`](www/index.html). Edit it, refresh,
-done. No build step. It's 2003 in here and it's wonderful.
-
-## 📱 Ship it to the App Store
-
-This repo is already wrapped with Capacitor — `ios/` is a real Xcode project.
-
-```
-npx cap sync ios     # after editing www/
-npx cap open ios     # on a Mac
-```
-
-Full walkthrough (signing, icons, App Store Connect, Apple's review moods):
-[APP-STORE-DEPLOY.md](APP-STORE-DEPLOY.md)
-
 ## 🗺️ Map
 
 | Path | What it is |
