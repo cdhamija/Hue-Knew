@@ -150,12 +150,39 @@
     color: rgba(255,255,255,0.45);
   }
 
-  /* collection badge */
-  .badge {
+  /* top bar: reset button + collection badge */
+  .topbar {
     position: fixed;
     top: calc(14px + env(safe-area-inset-top));
     right: 14px;
     z-index: 20;
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .reset-btn {
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: bold;
+    font-size: 1.15rem;
+    line-height: 1;
+    color: #fff;
+    background: rgba(255,255,255,0.14);
+    backdrop-filter: blur(6px);
+    border-radius: 999px;
+    width: 40px;
+    transition: transform 0.15s ease, background 0.3s ease;
+  }
+  .reset-btn:hover { transform: scale(1.08); background: rgba(255,255,255,0.22); }
+  .reset-btn.spin { animation: spin 0.5s ease; }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(-360deg); }
+  }
+
+  .badge {
     border: none;
     cursor: pointer;
     font-family: inherit;
@@ -257,7 +284,10 @@
     </div>
   </div>
 
-  <button class="badge" id="badge" aria-label="open collection">0 / 64</button>
+  <div class="topbar">
+    <button class="reset-btn" id="resetBtn" aria-label="start over">&#8634;</button>
+    <button class="badge" id="badge" aria-label="open collection">0 / 64</button>
+  </div>
 
   <div class="collection" id="collection">
     <div class="col-head">
@@ -452,6 +482,22 @@
       colGrid.appendChild(sw);
     }
   }
+
+  // ---- reset: clear the board and start tapping from the top ----
+  const resetBtn = document.getElementById("resetBtn");
+  resetBtn.addEventListener("pointerdown", (e) => {
+    e.stopPropagation();
+    field.innerHTML = "";
+    deck = [];
+    nameEl.textContent = "Hue Knew?";
+    nameEl.style.color = "#fff";
+    hintEl.textContent = "tap anywhere — a new color appears";
+    document.body.style.background = "#111";
+    resetBtn.classList.remove("spin");
+    void resetBtn.offsetWidth;
+    resetBtn.classList.add("spin");
+    buzz(false);
+  });
 
   badge.addEventListener("pointerdown", (e) => {
     e.stopPropagation();
