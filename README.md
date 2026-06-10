@@ -2,6 +2,8 @@
 
 **Smaragdine?! Coquelicot?! WHO KNEW?!**
 
+▶ **[Play it now → cdhamija.github.io/Hue-Knew](https://cdhamija.github.io/Hue-Knew/)**
+
 A tiny tap toy about the colors nobody told you about. Tap anywhere and a
 brand-new color springs onto the screen with a satisfying *boop*, a little
 buzz, and its gloriously obscure name in big bold Helvetica. Tap it again and
