@@ -489,6 +489,9 @@
     e.stopPropagation();
     field.innerHTML = "";
     deck = [];
+    found.clear();
+    localStorage.removeItem("hueknew-found");
+    badge.textContent = `0 / ${COLORS.length}`;
     nameEl.textContent = "Hue Knew?";
     nameEl.style.color = "#fff";
     hintEl.textContent = "tap anywhere — a new color appears";
